@@ -26,7 +26,7 @@ which netcoredbg || echo "ERROR: netcoredbg not found"
 dotnet --version || echo "ERROR: dotnet not found"
 ```
 
-If netcoredbg is missing, tell the user to install it from https://github.com/Samsung/netcoredbg/releases.
+If either tool is missing, install them before proceeding (see the Dependencies section below).
 
 ### Step 2: Find and Build the Project
 
@@ -170,3 +170,57 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop
 - **"Unable to evaluate expression"**: Variable may be optimized away (Release build) or out of scope. Use `-stack-list-variables --all-values` to see what's available.
 - **Session hangs on read**: Program may be waiting for input or blocked. Run `bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop` and restart.
 - **No output from read**: Try `sleep 1` then read again — command may still be processing.
+- **`libdbgshim.so` not found**: All files from the netcoredbg release tarball must be installed together (see Dependencies below).
+
+## Dependencies
+
+This skill requires two tools. If either is missing, install them using the steps below.
+
+### .NET SDK
+
+Required to build and run .NET applications.
+
+**Ubuntu/Debian:**
+```bash
+apt-get update && apt-get install -y dotnet-sdk-8.0
+```
+
+**macOS:**
+```bash
+brew install dotnet-sdk
+```
+
+**Other platforms:** See https://dotnet.microsoft.com/download
+
+Verify with: `dotnet --version`
+
+### netcoredbg
+
+The Samsung .NET debugger. Must be installed with ALL companion files from the release archive (the binary alone is not enough — it needs `libdbgshim.so` and several `.dll` files).
+
+**Linux (amd64):**
+```bash
+curl -sSL https://github.com/Samsung/netcoredbg/releases/latest/download/netcoredbg-linux-amd64.tar.gz -o /tmp/netcoredbg.tar.gz
+tar xzf /tmp/netcoredbg.tar.gz -C /tmp
+cp /tmp/netcoredbg/* /usr/local/bin/
+```
+
+**macOS (arm64):**
+```bash
+curl -sSL https://github.com/Samsung/netcoredbg/releases/latest/download/netcoredbg-osx-arm64.tar.gz -o /tmp/netcoredbg.tar.gz
+tar xzf /tmp/netcoredbg.tar.gz -C /tmp
+cp /tmp/netcoredbg/* /usr/local/bin/
+```
+
+**macOS (amd64):**
+```bash
+curl -sSL https://github.com/Samsung/netcoredbg/releases/latest/download/netcoredbg-osx-amd64.tar.gz -o /tmp/netcoredbg.tar.gz
+tar xzf /tmp/netcoredbg.tar.gz -C /tmp
+cp /tmp/netcoredbg/* /usr/local/bin/
+```
+
+For other platforms, download the correct archive from https://github.com/Samsung/netcoredbg/releases.
+
+IMPORTANT: Copy ALL files from the extracted archive, not just the `netcoredbg` binary. The debugger requires `libdbgshim.so` (Linux) or `libdbgshim.dylib` (macOS) and several managed `.dll` files (`ManagedPart.dll`, `Microsoft.CodeAnalysis.*.dll`) to be in the same directory.
+
+Verify with: `netcoredbg --version`
