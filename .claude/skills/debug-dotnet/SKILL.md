@@ -12,6 +12,8 @@ The helper script at `${CLAUDE_SKILL_DIR}/scripts/netdbg.sh` manages the debug s
 
 ## Helper Script Reference
 
+NOTE: Only one debug session at a time. The script uses a fixed session directory (`/tmp/netdbg-session`). Starting a new session automatically cleans up any previous one.
+
 Use `sr` (send+read) for most commands — it sends an MI command, waits for output (with auto-retry), and prints the response in a single call:
 
 ```bash
@@ -229,14 +231,14 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop
 
 **stdin:** The process's stdin is NOT directly accessible through MI commands. The FIFO pipe feeds netcoredbg's MI command interpreter, not the debugged program. If the program calls `Console.ReadLine()` or similar, it will block indefinitely. Use `-exec-interrupt` to regain control if this happens.
 
-**Writing to stdin via /proc (Linux only):** On Linux, you can send input to the debugged process by writing to netcoredbg's fd 4, which is piped to the child's stdin:
+**Writing to stdin via /proc (Linux only):** On Linux, netcoredbg holds a pipe to the child's stdin on fd 4. You can write to it to deliver input:
 
 ```bash
-# Find netcoredbg's PID
-pgrep -f "netcoredbg --interpreter=mi"
-# Write to its fd 4 to deliver stdin to the debugged process
-echo "input text" > /proc/<netcoredbg-pid>/fd/4
+# Find netcoredbg's PID and write to its fd 4
+echo "input text" > /proc/$(pgrep -f "netcoredbg --interpreter=mi" | head -1)/fd/4
 ```
+
+This is confirmed working — `Console.ReadLine()` receives the text and the program continues. The fd number (4) is consistent but check with `ls -la /proc/<pid>/fd/` if it doesn't work.
 
 **Other workarounds for stdin-dependent programs:**
 - Modify the code to read from a file or environment variable instead during debugging
