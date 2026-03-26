@@ -8,7 +8,7 @@ argument-hint: [file:line or bug description]
 # .NET Debugger (netcoredbg MI mode)
 
 Debug .NET applications interactively using netcoredbg's Machine Interface protocol.
-The helper script at `.claude/scripts/netdbg.sh` manages the debug session.
+The helper script at `${CLAUDE_SKILL_DIR}/scripts/netdbg.sh` manages the debug session.
 
 ## Arguments
 
@@ -41,13 +41,13 @@ Note the output DLL path from build output (e.g., `bin/Debug/net8.0/MyApp.dll`).
 ### Step 3: Start Debug Session
 
 ```bash
-bash .claude/scripts/netdbg.sh start /path/to/bin/Debug/net8.0/MyApp.dll
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh start /path/to/bin/Debug/net8.0/MyApp.dll
 ```
 
 Then read the initial output to confirm MI mode is active:
 
 ```bash
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
 You should see `=library-loaded` messages confirming netcoredbg started.
@@ -58,12 +58,12 @@ Set breakpoints BEFORE running the program:
 
 ```bash
 # By file and line
-bash .claude/scripts/netdbg.sh send "-break-insert /full/path/to/Program.cs:42"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-break-insert /full/path/to/Program.cs:42"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 # By method name
-bash .claude/scripts/netdbg.sh send "-break-insert MyNamespace.MyClass.MyMethod"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-break-insert MyNamespace.MyClass.MyMethod"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
 Verify with `^done,bkpt={number=` in the response. If `^error`, check the path/line.
@@ -73,9 +73,9 @@ Use FULL file paths for breakpoints — relative paths may not resolve correctly
 ### Step 5: Run the Program
 
 ```bash
-bash .claude/scripts/netdbg.sh send "-exec-run"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-run"
 sleep 1
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
 Watch for these stop reasons in the output:
@@ -91,40 +91,40 @@ When stopped, inspect program state:
 
 ```bash
 # Call stack
-bash .claude/scripts/netdbg.sh send "-stack-list-frames"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-stack-list-frames"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 # All local variables in current frame
-bash .claude/scripts/netdbg.sh send "-stack-list-variables --all-values"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-stack-list-variables --all-values"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 # Evaluate a specific expression
-bash .claude/scripts/netdbg.sh send '-data-evaluate-expression "variableName"'
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-data-evaluate-expression "variableName"'
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 # Inspect object properties
-bash .claude/scripts/netdbg.sh send '-data-evaluate-expression "myObj.Property"'
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-data-evaluate-expression "myObj.Property"'
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
 ### Step 7: Step Through Code
 
 ```bash
 # Step over (next line)
-bash .claude/scripts/netdbg.sh send "-exec-next"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-next"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 # Step into (enter method)
-bash .claude/scripts/netdbg.sh send "-exec-step"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-step"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 # Step out (finish method)
-bash .claude/scripts/netdbg.sh send "-exec-finish"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-finish"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 # Continue to next breakpoint
-bash .claude/scripts/netdbg.sh send "-exec-continue"
-bash .claude/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-continue"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
 After each step, re-inspect variables to observe how state changes.
@@ -143,8 +143,8 @@ After gathering debug information:
 Always clean up when done:
 
 ```bash
-bash .claude/scripts/netdbg.sh send "-gdb-exit"
-bash .claude/scripts/netdbg.sh stop
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-gdb-exit"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop
 ```
 
 ## MI Response Reference
@@ -164,5 +164,5 @@ bash .claude/scripts/netdbg.sh stop
 
 - **Breakpoint not hit**: Ensure `-c Debug` build. Check full file path. Verify the code path executes.
 - **"Unable to evaluate expression"**: Variable may be optimized away (Release build) or out of scope. Use `-stack-list-variables --all-values` to see what's available.
-- **Session hangs on read**: Program may be waiting for input or blocked. Run `bash .claude/scripts/netdbg.sh stop` and restart.
+- **Session hangs on read**: Program may be waiting for input or blocked. Run `bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop` and restart.
 - **No output from read**: Try `sleep 1` then read again — command may still be processing.
