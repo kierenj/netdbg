@@ -174,25 +174,7 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop
 
 ## Dependencies
 
-This skill requires two tools. If either is missing, install them using the steps below.
-
-### .NET SDK
-
-Required to build and run .NET applications.
-
-**Ubuntu/Debian:**
-```bash
-apt-get update && apt-get install -y dotnet-sdk-8.0
-```
-
-**macOS:**
-```bash
-brew install dotnet-sdk
-```
-
-**Other platforms:** See https://dotnet.microsoft.com/download
-
-Verify with: `dotnet --version`
+This skill requires the .NET SDK and netcoredbg. The .NET SDK is assumed to be already installed. If netcoredbg is missing, install it using the steps below.
 
 ### netcoredbg
 
