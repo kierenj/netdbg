@@ -10,6 +10,18 @@ argument-hint: [file:line or bug description]
 Debug .NET applications interactively using netcoredbg's Machine Interface protocol.
 The helper script at `${CLAUDE_SKILL_DIR}/scripts/netdbg.sh` manages the debug session.
 
+## Helper Script Reference
+
+Use `sr` (send+read) for most commands — it sends an MI command, waits for output (with auto-retry), and prints the response in a single call:
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "<mi-command>"
+```
+
+Other subcommands: `start <dll>`, `attach <pid>`, `send "<cmd>"`, `read`, `stop`, `status`.
+
+If `sr` returns `(no new output)`, call `read` to check for late-arriving output.
+
 ## Arguments
 
 `$ARGUMENTS` may contain:
@@ -45,48 +57,38 @@ For multi-project solutions, identify the entry point project (the one with `<Ou
 **Launch a new process:**
 ```bash
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh start /path/to/bin/Debug/net8.0/MyApp.dll
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
 **Or attach to a running process:**
 ```bash
-# Find the PID first
 ps aux | grep dotnet
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh attach <pid>
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
 When attaching, the process is paused immediately. Set breakpoints, then send `-exec-continue` to resume.
-
-Then read the initial output to confirm MI mode is active:
-
-```bash
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
-```
 
 You should see `=library-loaded` messages and `(gdb)` confirming netcoredbg started.
 
 ### Step 4: Set Breakpoints
 
-Set breakpoints BEFORE running the program:
+Set breakpoints BEFORE running the program. Use FULL file paths — relative paths may not resolve.
 
 ```bash
-# By file and line (use FULL paths — relative paths may not resolve)
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-break-insert /full/path/to/Program.cs:42"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+# By file and line
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-break-insert /full/path/to/Program.cs:42"
 
 # By method name
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-break-insert MyNamespace.MyClass.MyMethod"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-break-insert MyNamespace.MyClass.MyMethod"
 ```
 
 Verify with `^done,bkpt={number=` in the response. If `^error`, check the path/line.
 
 #### Conditional Breakpoints
 
-Stop only when a condition is true:
-
 ```bash
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-break-insert -c "i==100" /full/path/to/File.cs:33'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-break-insert -c "i==100" /full/path/to/File.cs:33'
 ```
 
 The condition is a C# expression evaluated at the breakpoint location.
@@ -99,12 +101,10 @@ Break when exceptions are thrown (not just unhandled):
 
 ```bash
 # Break on ALL thrown exceptions
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-break-exception-insert throw+user-unhandled *'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-break-exception-insert throw+user-unhandled *'
 
 # Break on a specific exception type only
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-break-exception-insert throw+user-unhandled System.NullReferenceException'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-break-exception-insert throw+user-unhandled System.NullReferenceException'
 ```
 
 When an exception breakpoint fires, the stop reason will be `*stopped,reason="exception-received"` with `exception-stage="throw"`. The `$exception` variable will be available for inspection.
@@ -112,13 +112,15 @@ When an exception breakpoint fires, the stop reason will be `*stopped,reason="ex
 ### Step 5: Run the Program
 
 ```bash
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-run"
-sleep 1
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-exec-run"
 ```
 
 netcoredbg stops at the entry point first (`*stopped,reason="entry-point-hit"`).
-Send `-exec-continue` to proceed to your breakpoints.
+Send `-exec-continue` to proceed to your breakpoints:
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-exec-continue"
+```
 
 Watch for these stop reasons in the output:
 - `*stopped,reason="entry-point-hit"` — paused at program entry, send `-exec-continue`
@@ -126,7 +128,7 @@ Watch for these stop reasons in the output:
 - `*stopped,reason="exception-received"` — exception thrown (check `exception-stage` and `$exception` variable)
 - `*stopped,reason="exited"` — program finished
 
-If the program needs time to reach the breakpoint (e.g., web server awaiting request), tell the user what to do to trigger the code path, then read again.
+If the program needs time to reach the breakpoint (e.g., web server awaiting request), tell the user what to do to trigger the code path, then call `read` again.
 
 ### Step 6: Inspect State
 
@@ -134,12 +136,10 @@ When stopped, inspect program state:
 
 ```bash
 # Call stack
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-stack-list-frames"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-stack-list-frames"
 
 # All local variables in current frame
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-stack-list-variables --all-values"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-stack-list-variables --all-values"
 ```
 
 #### Evaluating Expressions
@@ -147,21 +147,16 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 NOTE: `-data-evaluate-expression` is NOT supported by netcoredbg. Use `-var-create` as an expression evaluator instead — it supports C# expressions including indexers, property access, and dictionary lookups:
 
 ```bash
-# Evaluate any expression (use a unique name each time)
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval1 * "names[0]"'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-var-create eval1 * "names[0]"'
 # ^done,...,value="\"Alice\""
 
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval2 * "names.Count"'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-var-create eval2 * "names.Count"'
 # ^done,...,value="3"
 
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval3 * "scores[\"Alice\"]"'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-var-create eval3 * "scores[\"Alice\"]"'
 # ^done,...,value="95"
 
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval4 * "person.Home.City"'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-var-create eval4 * "person.Home.City"'
 # ^done,...,value="\"Springfield\""
 ```
 
@@ -173,17 +168,14 @@ For exploring object structure when you don't know the property names, use the t
 
 ```bash
 # 1. Create a variable handle
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create myvar * "variableName"'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-var-create myvar * "variableName"'
 
 # 2. List its children (properties, fields)
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-list-children myvar'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-var-list-children myvar'
 # Response shows child names like var2, var3... with their exp (property name) and type
 
 # 3. Get the value of a specific child
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-evaluate-expression var2'
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr '-var-evaluate-expression var2'
 ```
 
 **Records/classes:** Children are clean property names (Name, Age, Home). Nested objects with `numchild > 0` can be drilled into further.
@@ -196,24 +188,19 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 ```bash
 # Step over (next line)
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-next"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-exec-next"
 
 # Step into (enter method)
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-step"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-exec-step"
 
 # Step out (finish method)
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-finish"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-exec-finish"
 
 # Continue to next breakpoint
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-continue"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-exec-continue"
 
 # Interrupt a running/blocked program
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-exec-interrupt"
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-exec-interrupt"
 ```
 
 After each step, re-inspect variables to observe how state changes.
@@ -232,7 +219,7 @@ After gathering debug information:
 Always clean up when done:
 
 ```bash
-bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-gdb-exit"
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "-gdb-exit"
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop
 ```
 
@@ -289,7 +276,6 @@ When debugging `async` methods, be aware of these quirks:
 - **Breakpoint not hit**: Ensure `-c Debug` build. Check full file path. Verify the code path executes.
 - **Program blocked on stdin**: Use `-exec-interrupt` to pause, then either skip past the ReadLine with stepping or stop and use the attach workflow instead.
 - **Session hangs on read**: Program may be waiting for input or blocked. Use `-exec-interrupt` to regain control, or `bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop` to force-stop.
-- **No output from read**: Try `sleep 1` then read again — command may still be processing.
 - **`libdbgshim.so` not found**: All files from the netcoredbg release tarball must be installed together (see Dependencies below).
 - **Async stack is confusing**: Look for the original method name in angle brackets: `<MethodName>d__N.MoveNext()` means you're in `MethodName`. Ignore the framework frames below it.
 - **Thread ID changed after await**: Normal for async code — execution resumed on a thread pool thread.

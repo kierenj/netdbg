@@ -18,6 +18,7 @@ Commands:
   attach <pid>          Attach to a running .NET process by PID
   send  "<mi-command>"  Send a GDB/MI command to netcoredbg
   read                  Read new output since last read
+  sr "<mi-command>" [wait]  Send a command and read the response (default wait: 0.5s)
   stop                  Stop the debug session and clean up
   status                Check if a debug session is active
 USAGE
@@ -121,6 +122,33 @@ cmd_send() {
     echo "Sent: $mi_cmd"
 }
 
+cmd_sr() {
+    local mi_cmd="${1:?ERROR: No MI command specified.}"
+    local wait="${2:-1}"
+
+    if [[ ! -p "$CMD_PIPE" ]]; then
+        echo "ERROR: No active debug session. Run 'netdbg.sh start' first."
+        return 1
+    fi
+
+    echo "$mi_cmd" > "$CMD_PIPE"
+    sleep "$wait"
+
+    # Poll briefly if no output yet (up to 5 retries, 1s apart)
+    local offset
+    offset=$(cat "$READ_OFFSET_FILE" 2>/dev/null || echo 0)
+    local current_size
+    current_size=$(wc -c < "$OUTPUT_LOG")
+    local retries=0
+    while [[ "$current_size" -le "$offset" && "$retries" -lt 5 ]]; do
+        sleep 1
+        current_size=$(wc -c < "$OUTPUT_LOG")
+        retries=$((retries + 1))
+    done
+
+    cmd_read
+}
+
 cmd_read() {
     if [[ ! -f "$OUTPUT_LOG" ]]; then
         echo "ERROR: No active debug session. Run 'netdbg.sh start' first."
@@ -207,6 +235,7 @@ case "${1:-}" in
     start)  shift; cmd_start "$@" ;;
     attach) shift; cmd_attach "$@" ;;
     send)   shift; cmd_send "$@" ;;
+    sr)     shift; cmd_sr "$@" ;;
     read)   shift; cmd_read "$@" ;;
     stop)   shift; cmd_stop "$@" ;;
     status) shift; cmd_status "$@" ;;
