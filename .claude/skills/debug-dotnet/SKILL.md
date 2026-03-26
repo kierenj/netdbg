@@ -219,11 +219,20 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh stop
 
 **stdout and stderr:** Both appear as `=message,text="...",send-to="output-window"` in the MI output. They are NOT distinguishable from each other — both use the same format. Look for these in `read` output to see what the program printed.
 
-**stdin:** The process's stdin is NOT accessible through the debug session. The FIFO pipe feeds netcoredbg's MI command interpreter, not the debugged program. If the program calls `Console.ReadLine()` or similar, it will block indefinitely. Use `-exec-interrupt` to regain control if this happens.
+**stdin:** The process's stdin is NOT directly accessible through MI commands. The FIFO pipe feeds netcoredbg's MI command interpreter, not the debugged program. If the program calls `Console.ReadLine()` or similar, it will block indefinitely. Use `-exec-interrupt` to regain control if this happens.
 
-**Workaround for stdin-dependent programs:** If the program requires stdin input, consider:
-- Modifying the code to read from a file or environment variable instead during debugging
-- Using the attach approach: start the program normally (with stdin available), then attach the debugger
+**Writing to stdin via /proc (Linux only):** On Linux, you can send input to the debugged process by writing to netcoredbg's fd 4, which is piped to the child's stdin:
+
+```bash
+# Find netcoredbg's PID
+pgrep -f "netcoredbg --interpreter=mi"
+# Write to its fd 4 to deliver stdin to the debugged process
+echo "input text" > /proc/<netcoredbg-pid>/fd/4
+```
+
+**Other workarounds for stdin-dependent programs:**
+- Modify the code to read from a file or environment variable instead during debugging
+- Use the attach approach: start the program normally (with stdin available), then attach the debugger
 
 ## Async/Await Debugging
 
