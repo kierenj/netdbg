@@ -22,6 +22,11 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh sr "<mi-command>"
 
 Other subcommands: `start <dll>`, `attach <pid>`, `send "<cmd>"`, `read`, `stop`, `status`.
 
+`status` returns one of:
+- `"Debug session is ACTIVE (PID: <pid>)"` — session running, includes output log size
+- `"Debug session exists but process is not running."` — session dir exists but debugger died; run `stop` then `start` again
+- `"No active debug session."` — no session dir; ready to start a new one
+
 If `sr` returns `(no new output)`, call `read` to check for late-arriving output.
 
 ## Arguments
