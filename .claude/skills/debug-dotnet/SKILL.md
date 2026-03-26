@@ -142,17 +142,39 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send "-stack-list-variables --all-val
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
-#### Inspecting Complex Objects and Collections
+#### Evaluating Expressions
 
-NOTE: `-data-evaluate-expression` is NOT supported by netcoredbg. Use the `-var-*` commands instead.
-
-To inspect objects, collections, and nested properties, use this three-step pattern:
+NOTE: `-data-evaluate-expression` is NOT supported by netcoredbg. Use `-var-create` as an expression evaluator instead — it supports C# expressions including indexers, property access, and dictionary lookups:
 
 ```bash
-# 1. Create a variable handle for the object
+# Evaluate any expression (use a unique name each time)
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval1 * "names[0]"'
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+# ^done,...,value="\"Alice\""
+
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval2 * "names.Count"'
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+# ^done,...,value="3"
+
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval3 * "scores[\"Alice\"]"'
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+# ^done,...,value="95"
+
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create eval4 * "person.Home.City"'
+bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
+# ^done,...,value="\"Springfield\""
+```
+
+Each `-var-create` needs a unique name (eval1, eval2, etc.). The value is returned directly in the response.
+
+#### Drilling Into Complex Objects
+
+For exploring object structure when you don't know the property names, use the three-step drill-down:
+
+```bash
+# 1. Create a variable handle
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-create myvar * "variableName"'
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
-# Response shows: numchild (number of properties/fields)
 
 # 2. List its children (properties, fields)
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-list-children myvar'
@@ -162,14 +184,13 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 # 3. Get the value of a specific child
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh send '-var-evaluate-expression var2'
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
-# Response: ^done,value="the value"
 ```
 
-**List/Array items:** Create a var for the list, list children to find `_items` (the backing array), then list children of `_items` to see `[0]`, `[1]`, etc. Use `-var-evaluate-expression` on each element to get the value.
+**Records/classes:** Children are clean property names (Name, Age, Home). Nested objects with `numchild > 0` can be drilled into further.
 
-**Dictionary entries:** Create a var for the dictionary and drill into its internal structure via `-var-list-children`.
+**List/Array:** `-var-list-children` on a List exposes internal fields (`_items`, `_size`, etc.), not logical items. Prefer using expression evaluation: `-var-create v * "myList[0]"`. Or drill into the `_items` child to access the backing array elements.
 
-**Nested objects:** List children of an object to find its properties. If a child has `numchild > 0`, it's a complex type — create or list its children to drill deeper.
+**Dictionary:** Same as List — children are internal fields. Prefer expression evaluation: `-var-create v * "myDict[\"key\"]"`. Or drill into `_entries` for raw access.
 
 ### Step 7: Step Through Code
 
