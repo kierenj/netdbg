@@ -243,11 +243,13 @@ When debugging `async` methods, be aware of these quirks:
 - The `<MethodName>` in angle brackets is the original method name
 - The stack will include framework frames like `AsyncStateMachineBox`, `ExecutionContext.RunInternal`, `ThreadPoolWorkQueue.Dispatch`
 
-**Variables:** Despite the mangled stack frames, local variables are usually accessible with their original names via `-stack-list-variables --all-values`.
+**Variables:** Despite the mangled stack frames, local variables are accessible with their original names via `-stack-list-variables --all-values`. Netcoredbg maps state machine fields back to original names — you will NOT see compiler-generated names like `<>s__1`.
 
 **Threads:** After an `await`, execution may resume on a different thread (thread pool). The `thread-id` in stop messages may change between steps. This is normal.
 
-**Stepping:** Stepping over an `await` will stop after the awaited task completes. If the task takes time (e.g., `Task.Delay`, HTTP call), add a longer `sleep` before reading output.
+**Breakpoints on `await` lines:** A breakpoint on a line like `await Task.Delay(100)` fires AFTER the awaited task completes (on the continuation thread), not before the await starts.
+
+**Stepping across `await`:** When stepping over an `await`, the variable being assigned (e.g., `var result = await DoWorkAsync()`) will still be `null` on the first stop. One additional `-exec-next` step is needed for the assignment to complete. Also, if the task takes time (e.g., HTTP call), add a longer `sleep` before reading output.
 
 ## MI Response Reference
 
