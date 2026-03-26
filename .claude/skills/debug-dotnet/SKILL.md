@@ -201,8 +201,11 @@ tar xzf /tmp/netcoredbg.tar.gz -C /tmp
 cp /tmp/netcoredbg/* /usr/local/bin/
 ```
 
+**Windows:**
+Download https://github.com/Samsung/netcoredbg/releases/latest/download/netcoredbg-win64.zip, extract it, and add the extracted directory to your PATH.
+
 For other platforms, download the correct archive from https://github.com/Samsung/netcoredbg/releases.
 
-IMPORTANT: Copy ALL files from the extracted archive, not just the `netcoredbg` binary. The debugger requires `libdbgshim.so` (Linux) or `libdbgshim.dylib` (macOS) and several managed `.dll` files (`ManagedPart.dll`, `Microsoft.CodeAnalysis.*.dll`) to be in the same directory.
+IMPORTANT: Keep ALL files from the extracted archive together in the same directory, not just the `netcoredbg` binary. The debugger requires `libdbgshim.so` (Linux), `libdbgshim.dylib` (macOS), or `dbgshim.dll` (Windows) and several managed `.dll` files (`ManagedPart.dll`, `Microsoft.CodeAnalysis.*.dll`) to function.
 
 Verify with: `netcoredbg --version`
