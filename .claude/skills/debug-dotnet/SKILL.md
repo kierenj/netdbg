@@ -91,6 +91,8 @@ bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 
 The condition is a C# expression evaluated at the breakpoint location.
 
+NOTE: The `-i` flag (ignore count / skip first N hits) is NOT functional in netcoredbg — use a conditional breakpoint with a counter variable instead.
+
 #### Exception Breakpoints
 
 Break when exceptions are thrown (not just unhandled):
