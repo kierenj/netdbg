@@ -38,8 +38,8 @@ cmd_start() {
 
     # Determine how to launch netcoredbg based on the target
     if [[ "$target" == *.dll ]]; then
-        # Direct DLL — use netcoredbg with -- dotnet exec
-        tail -f "$CMD_PIPE" | netcoredbg --interpreter=mi -- "$target" > "$OUTPUT_LOG" 2>&1 &
+        # Direct DLL — launch via dotnet runtime
+        tail -f "$CMD_PIPE" | netcoredbg --interpreter=mi -- dotnet "$target" > "$OUTPUT_LOG" 2>&1 &
         local pipeline_pid=$!
     else
         # Treat as a shell command (e.g., "dotnet run --project ./MyApp")

@@ -78,9 +78,13 @@ sleep 1
 bash ${CLAUDE_SKILL_DIR}/scripts/netdbg.sh read
 ```
 
+netcoredbg stops at the entry point first (`*stopped,reason="entry-point-hit"`).
+Send `-exec-continue` to proceed to your breakpoints.
+
 Watch for these stop reasons in the output:
+- `*stopped,reason="entry-point-hit"` — paused at program entry, send `-exec-continue`
 - `*stopped,reason="breakpoint-hit"` — breakpoint reached
-- `*stopped,reason="exception-received"` — unhandled exception
+- `*stopped,reason="exception-received"` — unhandled exception (check `$exception` variable)
 - `*stopped,reason="exited"` — program finished
 
 If the program needs time to reach the breakpoint (e.g., web server awaiting request), tell the user what to do to trigger the code path, then read again.
