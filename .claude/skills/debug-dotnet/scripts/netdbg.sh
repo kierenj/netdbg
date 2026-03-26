@@ -15,6 +15,7 @@ Usage: netdbg.sh <command> [args...]
 Commands:
   start <target>        Start a debug session
                         target: path to .dll, or a command like "dotnet run --project ./MyApp"
+  attach <pid>          Attach to a running .NET process by PID
   send  "<mi-command>"  Send a GDB/MI command to netcoredbg
   read                  Read new output since last read
   stop                  Stop the debug session and clean up
@@ -66,6 +67,41 @@ cmd_start() {
     echo "Session directory: $SESSION_DIR"
     echo ""
     echo "Use 'netdbg.sh read' to see initial output."
+}
+
+cmd_attach() {
+    local pid="${1:?ERROR: No PID specified. Provide the process ID to attach to.}"
+
+    # Clean up any previous session
+    if [[ -d "$SESSION_DIR" ]]; then
+        echo "Cleaning up previous session..."
+        cmd_stop 2>/dev/null || true
+    fi
+
+    mkdir -p "$SESSION_DIR"
+    mkfifo "$CMD_PIPE"
+    : > "$OUTPUT_LOG"
+    echo "0" > "$READ_OFFSET_FILE"
+
+    # Launch netcoredbg in attach mode
+    tail -f "$CMD_PIPE" | netcoredbg --interpreter=mi --attach "$pid" > "$OUTPUT_LOG" 2>&1 &
+    local pipeline_pid=$!
+
+    echo "$pipeline_pid" > "$DBG_PID_FILE"
+
+    local tail_pid
+    tail_pid=$(jobs -p 2>/dev/null | head -1)
+    if [[ -n "${tail_pid:-}" ]]; then
+        echo "$tail_pid" > "$TAIL_PID_FILE"
+    fi
+
+    sleep 1
+
+    echo "Attached to process $pid."
+    echo "Session directory: $SESSION_DIR"
+    echo ""
+    echo "Use 'netdbg.sh read' to see initial output."
+    echo "NOTE: The process is paused. Set breakpoints, then use 'send \"-exec-continue\"' to resume."
 }
 
 cmd_send() {
@@ -169,6 +205,7 @@ cmd_status() {
 # Main dispatch
 case "${1:-}" in
     start)  shift; cmd_start "$@" ;;
+    attach) shift; cmd_attach "$@" ;;
     send)   shift; cmd_send "$@" ;;
     read)   shift; cmd_read "$@" ;;
     stop)   shift; cmd_stop "$@" ;;
